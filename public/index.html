@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Tracker Pro - Painel de Monitoramento</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151f32',
+                            950: '#0b0f19',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar & map adjustments */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .leaflet-container { width: 100%; height: 100%; background: #0b0f19 !important; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #1e293b !important; color: #f8fafc !important; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-location-arrow text-lg animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        GPS Tracker <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PRO 24h</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Painel de Controle e Monitoramento em Tempo Real</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300 shadow-inner">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
+                    <span id="connection-text">Modo Local / Standalone</span>
+                </div>
+                <button onclick="abrirModalConfig()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition" title="Configurar Servidor Backend">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Sidebar: Controls & Devices & Logs -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- Transmission & Simulation Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-slate-200 flex items-center gap-2 text-sm sm:text-base">
+                        <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Transmissão deste Aparelho
+                    </h2>
+                    <span id="transmitting-status-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 font-medium">Inativo</span>
+                </div>
+
+                <p class="text-xs text-slate-400 mb-4">
+                    Transmita a geolocalização real do seu dispositivo ou use o modo simulador para testes no Render/Navegador.
+                </p>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Nome do Dispositivo / Veículo</label>
+                        <input type="text" id="input-device-name" value="Veículo Principal (Smartphone)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick="iniciarRastreamentoReal()" id="btn-real" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2.5 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-location-crosshairs"></i> GPS Real
+                        </button>
+                        <button onclick="iniciarRastreamentoSimulado()" id="btn-simulado" class="bg-cyan-600 hover:bg-cyan-500 text-white font-medium px-4 py-2.5 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-vr-cardboard"></i> Simular Rota
+                        </button>
+                    </div>
+
+                    <button onclick="pararTransmissao()" id="btn-parar" class="w-full bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 font-medium py-2 rounded-xl text-xs transition hidden flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-stop"></i> Parar Transmissão
+                    </button>
+                </div>
+            </div>
+
+            <!-- Telemetry Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-lg">
+                    <span class="text-[11px] text-slate-400 block uppercase font-semibold">Latitude</span>
+                    <span id="metric-lat" class="font-mono text-xs sm:text-sm font-bold text-slate-200">-</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-lg">
+                    <span class="text-[11px] text-slate-400 block uppercase font-semibold">Longitude</span>
+                    <span id="metric-lng" class="font-mono text-xs sm:text-sm font-bold text-slate-200">-</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-lg">
+                    <span class="text-[11px] text-slate-400 block uppercase font-semibold">Precisão</span>
+                    <span id="metric-acc" class="font-mono text-xs sm:text-sm font-bold text-slate-200">-</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-lg">
+                    <span class="text-[11px] text-slate-400 block uppercase font-semibold">Velocidade</span>
+                    <span id="metric-speed" class="font-mono text-xs sm:text-sm font-bold text-slate-200">-</span>
+                </div>
+            </div>
+
+            <!-- Devices & History Tabs / Container -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col min-h-[300px]">
+                <div class="flex border-b border-slate-800 pb-3 mb-4 gap-4">
+                    <button onclick="mudarAba('dispositivos')" id="tab-btn-dispositivos" class="text-sm font-bold text-emerald-400 border-b-2 border-emerald-500 pb-1 transition">Dispositivos Ativos</button>
+                    <button onclick="mudarAba('logs')" id="tab-btn-logs" class="text-sm font-medium text-slate-400 hover:text-slate-200 pb-1 transition">Histórico & Logs</button>
+                </div>
+
+                <!-- Tab Dispositivos -->
+                <div id="tab-dispositivos" class="flex-1 flex flex-col gap-2 overflow-y-auto max-h-[250px]">
+                    <div id="device-list" class="space-y-2">
+                        <!-- Gerado via JS -->
+                        <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                                    <i class="fa-solid fa-mobile-screen-button"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-slate-200" id="current-device-name-display">Nenhum ativo</p>
+                                    <p class="text-[10px] text-slate-400">Aguardando coordenadas...</p>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">Standby</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Logs -->
+                <div id="tab-logs" class="flex-1 flex flex-col gap-2 overflow-y-auto max-h-[250px] hidden">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs text-slate-400">Últimos registros de telemetria</span>
+                        <button onclick="limparLogs()" class="text-[10px] text-rose-400 hover:underline">Limpar Logs</button>
+                    </div>
+                    <div id="logs-container" class="space-y-1.5 font-mono text-[11px]">
+                        <div class="p-2 rounded bg-slate-950/40 border border-slate-800 text-slate-500">
+                            [Sistema] Painel inicializado com sucesso. Aguardando sinal GPS...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Interactive Map -->
+        <div class="lg:col-span-7 flex flex-col">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex-1 min-h-[450px] sm:min-h-[550px] relative flex flex-col">
+                <div class="absolute top-4 right-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-800 px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-slate-300 font-medium">OpenStreetMap (Leaflet)</span>
+                </div>
+                <div id="map" class="w-full flex-1"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Configuração API -->
+    <div id="modal-config" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-server text-emerald-400"></i> Configurar Servidor Backend
+                </h3>
+                <button onclick="fecharModalConfig()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <p class="text-xs text-slate-400 mb-4">
+                Se você fez o deploy deste projeto no Render, insira a URL do seu servidor Node.js abaixo para sincronizar as posições em 24h na nuvem. Deixe em branco para modo local/standalone.
+            </p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">URL da API (ex: https://meu-rastreador.onrender.com)</label>
+                    <input type="text" id="input-api-url" placeholder="http://localhost:3000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition font-mono">
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button onclick="salvarConfiguracao()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl text-sm transition shadow-lg shadow-emerald-900/30">
+                        Salvar e Conectar
+                    </button>
+                    <button onclick="fecharModalConfig()" class="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2.5 rounded-xl text-sm transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic Script -->
+    <script>
+        let map;
+        let marker = null;
+        let polyline = null;
+        let routeCoordinates = [];
+        let watchId = null;
+        let simulationInterval = null;
+        let syncInterval = null;
+        let isTransmitting = false;
+        let apiUrl = localStorage.getItem('tracker_api_url') || '';
+
+        // Simulação de rota pré-definida para testes (ex: região central / paulista ou arredores)
+        const mockRoute = [
+            [-23.550520, -46.633308],
+            [-23.552000, -46.634500],
+            [-23.554000, -46.636000],
+            [-23.556000, -46.637500],
+            [-23.558000, -46.639000],
+            [-23.560000, -46.640500]
+        ];
+        let mockIndex = 0;
+
+        window.addEventListener('load', () => {
+    // Inicia o rastreamento automaticamente ao abrir o app
+    iniciarRastreamentoAutomatico();
+});
+
+        // Inicializar Mapa Leaflet
+        function initMap() {
+            map = L.map('map').setView([-23.550520, -46.633308], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            polyline = L.polyline([], { color: '#10b981', weight: 4, opacity: 0.8 }).addTo(map);
+            atualizarBadgeConexao();
+        }
+
+        function atualizarBadgeConexao() {
+            const badgeText = document.getElementById('connection-text');
+            if (apiUrl) {
+                badgeText.textContent = `Nuvem Ativa: ${apiUrl.replace(/^https?:\/\//, '')}`;
+            } else {
+                badgeText.textContent = 'Modo Local / Standalone';
+            }
+        }
+
+        // Atualizar interface e mapa com nova posição
+        function processarNovaPosicao(lat, lng, accuracy = 5, speed = 0) {
+            const timeStr = new Date().toLocaleTimeString();
+            
+            // Métricas
+            document.getElementById('metric-lat').textContent = lat.toFixed(6);
+            document.getElementById('metric-lng').textContent = lng.toFixed(6);
+            document.getElementById('metric-acc').textContent = `${accuracy.toFixed(1)}m`;
+            document.getElementById('metric-speed').textContent = `${(speed * 3.6).toFixed(1)} km/h`;
+
+            const coords = [lat, lng];
+            routeCoordinates.push(coords);
+            polyline.setLatLngs(routeCoordinates);
+
+            if (!marker) {
+                marker = L.marker(coords).addTo(map);
+                map.setView(coords, 16);
+            } else {
+                marker.setLatLng(coords);
+                map.panTo(coords);
+            }
+
+            // Atualizar lista de dispositivos
+            const deviceName = document.getElementById('input-device-name').value || 'Smartphone';
+            document.getElementById('current-device-name-display').textContent = deviceName;
+            
+            // Adicionar log
+            adicionarLog(`[Telemetria] ${deviceName} -> Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`);
+
+            // Enviar para servidor remoto se configurado
+            if (apiUrl) {
+                enviarParaServidorRemoto(lat, lng);
+            }
+        }
+
+        async function enviarParaServidorRemoto(lat, lng) {
+            try {
+                await fetch(`${apiUrl}/api/atualizar-posicao`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lat, lng })
+                });
+            } catch (err) {
+                console.warn('Erro ao sincronizar com servidor remoto:', err);
+            }
+        }
+
+        // Rastreamento Real via Geolocation API
+        function iniciarRastreamentoReal() {
+            if (!navigator.geolocation) {
+                alert('Seu navegador não suporta geolocalização.');
+                return;
+            }
+
+            pararTransmissao();
+            isTransmitting = true;
+            atualizarEstadoUITransmissao(true, 'GPS Real Ativo');
+
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    processarNovaPosicao(
+                        pos.coords.latitude, 
+                        pos.coords.longitude, 
+                        pos.coords.accuracy, 
+                        pos.coords.speed || 0
+                    );
+                },
+                (err) => {
+                    alert('Erro ao obter GPS: ' + err.message);
+                    pararTransmissao();
+                },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            );
+        }
+
+        // Rastreamento Simulado
+        function iniciarRastreamentoSimulado() {
+            pararTransmissao();
+            isTransmitting = true;
+            atualizarEstadoUITransmissao(true, 'Simulador Ativo');
+            mockIndex = 0;
+
+            // Executa imediatamente o primeiro ponto
+            const pt = mockRoute[mockIndex];
+            processarNovaPosicao(pt[0], pt[1], 3, 12.5);
+
+            simulationInterval = setInterval(() => {
+                mockIndex = (mockIndex + 1) % mockRoute.length;
+                const p = mockRoute[mockIndex];
+                // Adiciona leve variação realista
+                const jitterLat = p[0] + (Math.random() - 0.5) * 0.0005;
+                const jitterLng = p[1] + (Math.random() - 0.5) * 0.0005;
+                processarNovaPosicao(jitterLat, jitterLng, 4, 15.0);
+            }, 4000);
+        }
+
+        function pararTransmissao() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            if (simulationInterval !== null) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+            }
+            isTransmitting = false;
+            atualizarEstadoUITransmissao(false, 'Inativo');
+        }
+
+        function atualizarEstadoUITransmissao(ativo, textoStatus) {
+            const badge = document.getElementById('transmitting-status-badge');
+            const btnParar = document.getElementById('btn-parar');
+            
+            badge.textContent = textoStatus;
+            if (ativo) {
+                badge.className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium animate-pulse';
+                btnParar.classList.remove('hidden');
+            } else {
+                badge.className = 'text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 font-medium';
+                btnParar.classList.add('hidden');
+            }
+        }
+
+        // Buscar dados do servidor remoto se configurado (Modo Monitor)
+        async function buscarPosicaoRemota() {
+            if (!apiUrl || isTransmitting) return;
+            try {
+                const res = await fetch(`${apiUrl}/api/posicao`);
+                const data = await res.json();
+                if (data.lat && data.lng) {
+                    processarNovaPosicao(data.lat, data.lng, 5, 0);
+                }
+            } catch (err) {
+                // Silencia falhas de polling
+            }
+        }
+
+        // Logs & Tabs Management
+        function mudarAba(aba) {
+            const btnDisp = document.getElementById('tab-btn-dispositivos');
+            const btnLogs = document.getElementById('tab-btn-logs');
+            const tabDisp = document.getElementById('tab-dispositivos');
+            const tabLogs = document.getElementById('tab-logs');
+
+            if (aba === 'dispositivos') {
+                btnDisp.className = 'text-sm font-bold text-emerald-400 border-b-2 border-emerald-500 pb-1 transition';
+                btnLogs.className = 'text-sm font-medium text-slate-400 hover:text-slate-200 pb-1 transition';
+                tabDisp.classList.remove('hidden');
+                tabLogs.classList.add('hidden');
+            } else {
+                btnLogs.className = 'text-sm font-bold text-emerald-400 border-b-2 border-emerald-500 pb-1 transition';
+                btnDisp.className = 'text-sm font-medium text-slate-400 hover:text-slate-200 pb-1 transition';
+                tabLogs.classList.remove('hidden');
+                tabDisp.classList.add('hidden');
+            }
+        }
+
+        function adicionarLog(texto) {
+            const container = document.getElementById('logs-container');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = 'p-2 rounded bg-slate-950/40 border border-slate-800/80 text-slate-300 flex justify-between items-center';
+            div.innerHTML = `<span>${texto}</span> <span class="text-[10px] text-slate-500">${time}</span>`;
+            container.prepend(div);
+
+            // Mantém máximo de 50 logs
+            if (container.children.length > 50) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function limparLogs() {
+            document.getElementById('logs-container').innerHTML = '<div class="p-2 rounded bg-slate-950/40 border border-slate-800 text-slate-500">[Sistema] Logs limpos.</div>';
+        }
+
+        // Modal Configurações
+        function abrirModalConfig() {
+            document.getElementById('input-api-url').value = apiUrl;
+            document.getElementById('modal-config').classList.remove('hidden');
+        }
+
+        function fecharModalConfig() {
+            document.getElementById('modal-config').classList.add('hidden');
+        }
+
+        function salvarConfiguracao() {
+            apiUrl = document.getElementById('input-api-url').value.trim().replace(/\/$/, '');
+            localStorage.setItem('tracker_api_url', apiUrl);
+            atualizarBadgeConexao();
+            fecharModalConfig();
+            adicionarLog(`[Sistema] API Remota configurada para: ${apiUrl || 'Local'}`);
+        }
+
+        // Inicialização global
+        window.onload = () => {
+            initMap();
+            // Polling remoto a cada 5 segundos caso haja URL configurada
+            setInterval(buscarPosicaoRemota, 5000);
+        };
+    </script>
+</body>
+</html>
