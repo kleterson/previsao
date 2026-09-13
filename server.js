@@ -1,30 +1,57 @@
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
-const app = express();
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
 app.use(express.json());
+
+// Servir arquivos estáticos da pasta public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Variável temporária (idealmente salvar em banco de dados para 24h)
-let ultimaLocalizacao = { lat: 0, lng: 0, timestamp: null };
+// Armazenamento em memória (reseta se o servidor reiniciar)
+let registros = [];
 
-// Rota para receber a posição enviada pelo dispositivo rastreador
-app.post('/api/atualizar-posicao', (req, res) => {
-    const { lat, lng } = req.body;
-    if (lat && lng) {
-        ultimaLocalizacao = { lat, lng, timestamp: new Date() };
-        console.log(`Posição atualizada: \({lat},\){lng}`);
-        return res.status(200).json({ status: 'sucesso' });
-    }
-    res.status(400).json({ status: 'erro', mensagem: 'Coordenadas inválidas' });
+// Rota principal (Serve o index.html dentro de public)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Rota para o painel consultar onde está o rastreador
-app.get('/api/posicao', (req, res) => {
-    res.json(ultimaLocalizacao);
+// Rota para o painel administrativo (Serve o rastreador.html dentro de public)
+app.get('/rastreador', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'rastreador.html'));
 });
 
-const PORT = process.env.PORT || 3000;
+// Rota da API para salvar o rastreamento
+app.post('/api/track', (req, res) => {
+    const { latitude, longitude, ip, userAgent, dataHora } = req.body;
+
+    const novoRegistro = {
+        id: Date.now(),
+        latitude,
+        longitude,
+        ip: ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+        userAgent: userAgent || req.headers['user-agent'],
+        dataHora: dataHora || new Date().toLocaleString('pt-BR')
+    };
+
+    registros.unshift(novoRegistro);
+    return res.status(200).json({ success: true, message: 'Dados salvos com sucesso!' });
+});
+
+// Rota da API para o painel ler os registros
+app.get('/api/registros', (req, res) => {
+    return res.status(200).json(registros);
+});
+
+// Rota para limpar os registros
+app.delete('/api/registros', (req, res) => {
+    registros = [];
+    return res.status(200).json({ success: true, message: 'Registros limpos!' });
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
