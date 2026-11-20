@@ -12,7 +12,7 @@
     <div class="max-w-6xl mx-auto space-y-6">
         <div class="flex flex-wrap justify-between items-center gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-emerald-400">Painel de Capturas & Tempo Real</h1>
+                <h1 class="text-2xl font-bold text-emerald-400">Painel de Capturas &amp; Tempo Real</h1>
                 <p id="contador-ao-vivo" class="text-xs text-gray-400 mt-1">Sessões ativas: 0</p>
             </div>
             <div class="space-x-2">
@@ -21,28 +21,32 @@
             </div>
         </div>
 
-        <!-- Painel de Câmera, Escuta e Localização em Tempo Real -->
+        <!-- Painel de Recados de Voz Enviados e Localização em Tempo Real -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
             <div class="lg:col-span-2 space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
                         <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Câmera & Escuta ao Vivo</h2>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Recados de Voz &amp; Monitoramento</h2>
                     </div>
                     <div class="flex items-center gap-2">
                         <select id="seletor-sessao" onchange="selecionarSessao(this.value)" class="bg-gray-900 border border-gray-600 text-xs rounded px-2.5 py-1.5 text-gray-200">
                             <option value="">Aguardando conexão...</option>
                         </select>
-                        <button id="btn-escuta" onclick="alternarEscuta()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition">
-                            Ativar Escuta: OFF
+                        <button id="btn-reproducao" onclick="alternarReproducaoAuto()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition">
+                            Reprodução Auto: OFF
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-gray-950 rounded-lg border border-gray-700 h-64 flex items-center justify-center overflow-hidden relative">
-                    <img id="live-camera" src="" alt="Sem sinal de câmera" class="hidden max-h-full max-w-full object-contain" />
-                    <div id="sem-camera" class="text-center text-gray-500 text-sm px-4">
-                        Aguardando permissão ou envio de imagem da câmera...
+                <div class="bg-gray-950 rounded-lg border border-gray-700 p-4 min-h-[16rem] flex flex-col justify-between space-y-3">
+                    <div>
+                        <p class="text-xs text-gray-400 mb-2">Último recado de áudio enviado voluntariamente pelo usuário:</p>
+                        <audio id="player-recado" controls class="w-full"></audio>
+                    </div>
+
+                    <div id="lista-recados" class="space-y-2 max-h-40 overflow-y-auto text-xs text-gray-300">
+                        <div class="text-gray-500">Nenhum recado de áudio recebido até o momento.</div>
                     </div>
                 </div>
             </div>
@@ -54,7 +58,7 @@
                     <div><span class="text-gray-400">Última atualização:</span> <span id="live-hora" class="font-mono text-gray-200">-</span></div>
                     <div><span class="text-gray-400">Coordenadas:</span> <span id="live-coords" class="font-mono text-emerald-300">-</span></div>
                     <div><span class="text-gray-400">Precisão:</span> <span id="live-accuracy" class="font-mono text-gray-200">-</span></div>
-                    <div><span class="text-gray-400">Áudio / Câmera:</span> <span id="live-midia-status" class="text-gray-300">-</span></div>
+                    <div><span class="text-gray-400">Status da sessão:</span> <span id="live-midia-status" class="text-gray-300">-</span></div>
                 </div>
 
                 <a id="live-maps-link" href="#" target="_blank" class="pointer-events-none opacity-50 bg-emerald-600 hover:bg-emerald-700 text-center text-white text-xs font-semibold py-2.5 rounded-lg transition">
@@ -88,10 +92,9 @@
     <script>
         const socket = io();
         const sessoes = {};
+        const recadosRecebidos = [];
         let sessaoSelecionada = '';
-        let escutaAtiva = false;
-        const filaAudio = [];
-        let tocandoAudio = false;
+        let reproducaoAuto = false;
 
         socket.emit('entrar-painel');
 
@@ -103,6 +106,7 @@
             if (ids.length === 0) {
                 select.innerHTML = `<option value="">Aguardando conexão...</option>`;
                 sessaoSelecionada = '';
+                renderizarPainelAoVivo();
                 return;
             }
 
@@ -126,8 +130,6 @@
 
         function renderizarPainelAoVivo() {
             const s = sessoes[sessaoSelecionada];
-            const imgEl = document.getElementById('live-camera');
-            const semCamEl = document.getElementById('sem-camera');
             const linkMaps = document.getElementById('live-maps-link');
 
             if (!s) {
@@ -136,8 +138,6 @@
                 document.getElementById('live-coords').textContent = '-';
                 document.getElementById('live-accuracy').textContent = '-';
                 document.getElementById('live-midia-status').textContent = '-';
-                imgEl.classList.add('hidden');
-                semCamEl.classList.remove('hidden');
                 linkMaps.classList.add('pointer-events-none', 'opacity-50');
                 linkMaps.href = '#';
                 return;
@@ -157,61 +157,49 @@
                 linkMaps.classList.add('pointer-events-none', 'opacity-50');
             }
 
-            const camTxt = s.cameraAtiva ? 'Câmera ON' : 'Câmera OFF';
-            const audTxt = s.audioAtivo ? 'Mic ON' : 'Mic OFF';
-            document.getElementById('live-midia-status').textContent = `${camTxt} | ${audTxt}`;
-
-            if (s.ultimoFrame) {
-                imgEl.src = s.ultimoFrame;
-                imgEl.classList.remove('hidden');
-                semCamEl.classList.add('hidden');
-            } else {
-                imgEl.classList.add('hidden');
-                semCamEl.classList.remove('hidden');
-            }
+            document.getElementById('live-midia-status').textContent = s.statusTexto || 'Conectado';
         }
 
-        function alternarEscuta() {
-            escutaAtiva = !escutaAtiva;
-            const btn = document.getElementById('btn-escuta');
-            if (escutaAtiva) {
-                btn.textContent = 'Ativar Escuta: ON';
+        function alternarReproducaoAuto() {
+            reproducaoAuto = !reproducaoAuto;
+            const btn = document.getElementById('btn-reproducao');
+            if (reproducaoAuto) {
+                btn.textContent = 'Reprodução Auto: ON';
                 btn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
                 btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-                processarFilaAudio();
             } else {
-                btn.textContent = 'Ativar Escuta: OFF';
+                btn.textContent = 'Reprodução Auto: OFF';
                 btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
                 btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
-                filaAudio.length = 0;
             }
         }
 
-        function processarFilaAudio() {
-            if (!escutaAtiva || tocandoAudio || filaAudio.length === 0) return;
-            tocandoAudio = true;
+        function renderizarListaRecados() {
+            const container = document.getElementById('lista-recados');
+            if (recadosRecebidos.length === 0) {
+                container.innerHTML = `<div class="text-gray-500">Nenhum recado de áudio recebido até o momento.</div>`;
+                return;
+            }
 
-            const item = filaAudio.shift();
-            const blob = new Blob([item.chunk], { type: item.mimeType || 'audio/webm' });
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
+            container.innerHTML = recadosRecebidos.slice(0, 8).map((rec, idx) => `
+                <div class="flex items-center justify-between bg-gray-900 px-3 py-2 rounded border border-gray-800">
+                    <div>
+                        <span class="font-mono text-emerald-400">${rec.sessaoId}</span>
+                        <span class="text-gray-400 ml-2">${rec.dataHora}</span>
+                    </div>
+                    <button onclick="tocarRecado(${idx})" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs">
+                        Ouvir
+                    </button>
+                </div>
+            `).join('');
+        }
 
-            audio.onended = () => {
-                URL.revokeObjectURL(url);
-                tocandoAudio = false;
-                processarFilaAudio();
-            };
-
-            audio.onerror = () => {
-                URL.revokeObjectURL(url);
-                tocandoAudio = false;
-                processarFilaAudio();
-            };
-
-            audio.play().catch(() => {
-                tocandoAudio = false;
-                processarFilaAudio();
-            });
+        function tocarRecado(indice) {
+            const rec = recadosRecebidos[indice];
+            if (!rec) return;
+            const player = document.getElementById('player-recado');
+            player.src = rec.url;
+            player.play().catch(() => {});
         }
 
         socket.on('nova-sessao', (dados) => {
@@ -224,32 +212,22 @@
             atualizarSeletorSessoes();
         });
 
-        socket.on('status-midia', (dados) => {
-            sessoes[dados.sessaoId] = { ...(sessoes[dados.sessaoId] || {}), ...dados };
-            atualizarSeletorSessoes();
-        });
-
-        socket.on('frame-camera', (dados) => {
-            sessoes[dados.sessaoId] = {
-                ...(sessoes[dados.sessaoId] || {}),
-                sessaoId: dados.sessaoId,
-                ultimoFrame: dados.frame,
-                cameraAtiva: true,
-                dataHora: dados.dataHora || sessoes[dados.sessaoId]?.dataHora
+        socket.on('recado-audio', (dados) => {
+            if (!dados || !dados.audio) return;
+            const blob = new Blob([dados.audio], { type: dados.mimeType || 'audio/webm' });
+            const url = URL.createObjectURL(blob);
+            const item = {
+                sessaoId: dados.sessaoId || 'sessao',
+                dataHora: dados.dataHora || new Date().toLocaleString('pt-BR'),
+                url
             };
-            if (dados.sessaoId === sessaoSelecionada) {
-                renderizarPainelAoVivo();
-            } else {
-                atualizarSeletorSessoes();
-            }
-        });
+            recadosRecebidos.unshift(item);
+            renderizarListaRecados();
 
-        socket.on('chunk-audio', (dados) => {
-            if (!escutaAtiva) return;
-            if (!sessaoSelecionada || dados.sessaoId === sessaoSelecionada) {
-                if (filaAudio.length > 15) filaAudio.shift(); // Evita atraso acumulado
-                filaAudio.push(dados);
-                processarFilaAudio();
+            const player = document.getElementById('player-recado');
+            player.src = url;
+            if (reproducaoAuto) {
+                player.play().catch(() => {});
             }
         });
 
